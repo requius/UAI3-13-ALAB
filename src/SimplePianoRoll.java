@@ -217,6 +217,7 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 	boolean threadSuspended;
 
 	int currentBeat = 0;
+	int sleepIntervalInMilliseconds = 150;
 
 	public static final int RADIAL_MENU_PLAY = 0;
 	public static final int RADIAL_MENU_STOP = 1;
@@ -542,6 +543,9 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 				case CONTROL_MENU_ZOOM:
 					gw.zoomIn( (float)Math.pow( Constant.zoomFactorPerPixelDragged, delta_x-delta_y ) );
 					break;
+				case CONTROL_MENU_TEMPO:
+					setSleepIntervalInMilliseconds(getSleepIntervalInMilliseconds() * delta_y);
+					break;
 				default:
 					// TODO XXX
 					break;
@@ -575,7 +579,6 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 	}
 	public void run() {
 		try {
-			int sleepIntervalInMilliseconds = 150;
 			while (true) {
 
 				// Here's where the thread does some work
@@ -611,7 +614,13 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 		}
 		catch (InterruptedException e) { }
 	}
-
+	
+	public int getSleepIntervalInMilliseconds() {
+		return sleepIntervalInMilliseconds;
+	}
+	public void setSleepIntervalInMilliseconds(int sleepIntervalInMilliseconds) {
+		this.sleepIntervalInMilliseconds = sleepIntervalInMilliseconds;
+	}
 }
 
 public class SimplePianoRoll implements ActionListener {
@@ -684,7 +693,7 @@ public class SimplePianoRoll implements ActionListener {
 			playNoteUponRolloverRadioButton.setSelected(true);
 		else if ( rolloverMode == RM_PLAY_NOTE_UPON_ROLLOVER_IF_SPECIAL_KEY_HELD_DOWN )
 			playNoteUponRolloverIfSpecialKeyHeldDownRadioButton.setSelected(true);
-		else assert false;
+		else assert  false;
 	}
 
 	public void actionPerformed(ActionEvent e) {
