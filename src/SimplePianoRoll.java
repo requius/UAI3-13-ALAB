@@ -23,6 +23,7 @@ import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JRadioButton;
+import javax.swing.JTextField;
 import javax.swing.JCheckBox;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -544,7 +545,8 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 					gw.zoomIn( (float)Math.pow( Constant.zoomFactorPerPixelDragged, delta_x-delta_y ) );
 					break;
 				case CONTROL_MENU_TEMPO:
-					setSleepIntervalInMilliseconds(getSleepIntervalInMilliseconds() * delta_y);
+					setSleepIntervalInMilliseconds(getSleepIntervalInMilliseconds() + delta_y);
+					simplePianoRoll.tempo.setText("Tempo: " + Integer.toString(getSleepIntervalInMilliseconds()));
 					break;
 				default:
 					// TODO XXX
@@ -619,7 +621,8 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 		return sleepIntervalInMilliseconds;
 	}
 	public void setSleepIntervalInMilliseconds(int sleepIntervalInMilliseconds) {
-		this.sleepIntervalInMilliseconds = sleepIntervalInMilliseconds;
+		if (sleepIntervalInMilliseconds >= 0)
+			this.sleepIntervalInMilliseconds = sleepIntervalInMilliseconds;
 	}
 }
 
@@ -652,6 +655,8 @@ public class SimplePianoRoll implements ActionListener {
 	JRadioButton playNoteUponRolloverRadioButton;
 	JRadioButton playNoteUponRolloverIfSpecialKeyHeldDownRadioButton;
 
+	JLabel tempo;
+	
 	public boolean isMusicPlaying = false;
 	public boolean isMusicLoopedWhenPlayed = false;
 	public boolean highlightMajorScale = true;
@@ -907,6 +912,10 @@ public class SimplePianoRoll implements ActionListener {
 			toolPanel.add( playNoteUponRolloverIfSpecialKeyHeldDownRadioButton );
 			rolloverModeButtonGroup.add( playNoteUponRolloverIfSpecialKeyHeldDownRadioButton );
 
+		toolPanel.add( Box.createRigidArea(new Dimension(1,20)) );
+		tempo = new JLabel("Tempo: " + canvas.getSleepIntervalInMilliseconds());
+		toolPanel.add(tempo);
+			
 		frame.pack();
 		frame.setVisible( true );
 
