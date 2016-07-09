@@ -205,6 +205,16 @@ class Score {
 		);
 	}
 
+	public int getNumBeats() {
+		return numBeats;
+	}
+
+	public void setNumBeats(int numBeats) {
+		if (numBeats <= 128 && numBeats >= 0){
+			this.numBeats = numBeats;
+		}
+	}
+	
 }
 
 class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotionListener, Runnable {
@@ -214,6 +224,8 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 
 	Score score = new Score();
 
+	Metronome metronome = new Metronome();
+	
 	Thread thread = null;
 	boolean threadSuspended;
 
@@ -547,6 +559,12 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 				case CONTROL_MENU_TEMPO:
 					setSleepIntervalInMilliseconds(getSleepIntervalInMilliseconds() + delta_y);
 					simplePianoRoll.tempo.setText("Tempo: " + Integer.toString(getSleepIntervalInMilliseconds()));
+					metronome.start(Math.round(60000/getSleepIntervalInMilliseconds()));
+					break;
+				case CONTROL_MENU_TOTAL_DURATION:
+					score.setNumBeats(score.getNumBeats() + delta_y);
+					if (simplePianoRoll.isAutoFrameActive)
+						gw.frame(score.getBoundingRectangle(), true);
 					break;
 				default:
 					// TODO XXX
@@ -582,8 +600,6 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 	public void run() {
 		try {
 			while (true) {
-
-				// Here's where the thread does some work
 				synchronized( this ) {
 					if ( Constant.USE_SOUND ) {
 						for ( int i = 0; i < score.numPitches; ++i ) {
@@ -599,7 +615,7 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 							if ( score.grid[currentBeat][i] )
 								simplePianoRoll.midiChannels[0].noteOn( i+score.midiNoteNumberOfLowestPitch, Constant.midiVolume );
 						}
-					}
+					}					
 				}
 				repaint();
 
