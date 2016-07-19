@@ -453,6 +453,9 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 		if ( controlMenu.isVisible() ) {
 			int returnValue = controlMenu.releaseEvent( mouse_x, mouse_y );
 
+			if ( metronome.active )
+				metronome.stop();
+			
 			if ( returnValue == CustomWidget.S_REDRAW )
 				repaint();
 			if ( returnValue != CustomWidget.S_EVENT_NOT_CONSUMED )
@@ -518,6 +521,7 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 					playNote( midiNoteNumberOfMouseCurser );
 				repaint();
 			}
+			
 		}
 
 	}
@@ -558,7 +562,7 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 					break;
 				case CONTROL_MENU_TEMPO:
 					setSleepIntervalInMilliseconds(getSleepIntervalInMilliseconds() + delta_y);
-					simplePianoRoll.tempo.setText("Tempo: " + Integer.toString(getSleepIntervalInMilliseconds()));
+					simplePianoRoll.tempo.setText("Tempo: " + Integer.toString(getSleepIntervalInMilliseconds()) + " msec/beat");
 					metronome.start(Math.round(60000/getSleepIntervalInMilliseconds()));
 					break;
 				case CONTROL_MENU_TOTAL_DURATION:
@@ -637,7 +641,7 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 		return sleepIntervalInMilliseconds;
 	}
 	public void setSleepIntervalInMilliseconds(int sleepIntervalInMilliseconds) {
-		if (sleepIntervalInMilliseconds >= 0)
+		if (sleepIntervalInMilliseconds > 0)
 			this.sleepIntervalInMilliseconds = sleepIntervalInMilliseconds;
 	}
 }
@@ -929,7 +933,7 @@ public class SimplePianoRoll implements ActionListener {
 			rolloverModeButtonGroup.add( playNoteUponRolloverIfSpecialKeyHeldDownRadioButton );
 
 		toolPanel.add( Box.createRigidArea(new Dimension(1,20)) );
-		tempo = new JLabel("Tempo: " + canvas.getSleepIntervalInMilliseconds());
+		tempo = new JLabel("Tempo: " + canvas.getSleepIntervalInMilliseconds() + " msec/beat");
 		toolPanel.add(tempo);
 			
 		frame.pack();
