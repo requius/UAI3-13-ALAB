@@ -17,5 +17,7 @@ public class Constant {
 	public static final boolean USE_SOUND = true;
 
 	public static final int midiVolume = 127;
+	
+    public static final int MAJOR_SCALE = 1; 
+    public static final int PENTATONIC_SCALE = 2; 
 }
-

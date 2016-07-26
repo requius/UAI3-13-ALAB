@@ -1,41 +1,54 @@
 
-import java.util.ArrayList;
-
-import java.awt.Container;
-import java.awt.Component;
-import java.awt.Graphics;
 // import java.awt.Graphics2D;
 import java.awt.Color;
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
-
+import java.awt.Graphics;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
+import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
-import java.awt.event.KeyEvent;
-import java.awt.event.MouseEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.ActionEvent;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 
-import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.JMenuBar;
-import javax.swing.JMenu;
-import javax.swing.JMenuItem;
-import javax.swing.JCheckBoxMenuItem;
-import javax.swing.JRadioButton;
-import javax.swing.JTextField;
-import javax.swing.JCheckBox;
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-import javax.swing.ButtonGroup;
-import javax.swing.BoxLayout;
-import javax.swing.Box;
-import javax.swing.BorderFactory;
-import javax.swing.JLabel;
-
-import javax.sound.midi.MidiSystem;
-import javax.sound.midi.Synthesizer;
+import javax.sound.midi.InvalidMidiDataException;
 import javax.sound.midi.MidiChannel;
+import javax.sound.midi.MidiEvent;
+import javax.sound.midi.MidiSystem;
+import javax.sound.midi.Sequence;
+import javax.sound.midi.ShortMessage;
+import javax.sound.midi.Synthesizer;
+import javax.sound.midi.Track;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JRadioButton;
+import javax.swing.SwingUtilities;
 
 
 
@@ -253,7 +266,21 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 	int beatOfMouseCursor = -1; // -1 for none
 	int midiNoteNumberOfMouseCurser = -1; // -1 for none
 
+	private ArrayList<String> lines;
+	private Charset charset;
+	private Path target;
+	private File f;
+	private Sequence s;
+
+	int majorNotesTab[] = {0, 2, 4, 5, 7, 9, 11};
+	int pentatonicNOtesTab[] = {0, 2, 4, 7, 9};
+
 	public MyCanvas( SimplePianoRoll sp ) {
+
+		target = Paths.get("notes.txt");
+		charset = Charset.forName("US-ASCII");
+		lines = new ArrayList<>();
+
 		simplePianoRoll = sp;
 		setBorder( BorderFactory.createLineBorder( Color.black ) );
 		setBackground( Color.white );
@@ -376,7 +403,19 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 		if ( beatOfMouseCursor >= 0 && midiNoteNumberOfMouseCurser >= 0 ) {
 			if ( simplePianoRoll.dragMode == SimplePianoRoll.DM_DRAW_NOTES ) {
 				if ( score.grid[beatOfMouseCursor][midiNoteNumberOfMouseCurser-score.midiNoteNumberOfLowestPitch] != true ) {
-					score.grid[beatOfMouseCursor][midiNoteNumberOfMouseCurser-score.midiNoteNumberOfLowestPitch] = true;
+
+					int cureentNote = midiNoteNumberOfMouseCurser-score.midiNoteNumberOfLowestPitch;
+
+					if( simplePianoRoll.isActivateMajorScale() && !isOnScale(cureentNote+Score.midiNoteNumberOfLowestPitch, Constant.MAJOR_SCALE)){
+						score.grid[beatOfMouseCursor][midiNoteNumberOfMouseCurser-score.midiNoteNumberOfLowestPitch] = false;
+					}
+					else if( simplePianoRoll.isActivatePentatonicScale() && !isOnScale(cureentNote+Score.midiNoteNumberOfLowestPitch, Constant.PENTATONIC_SCALE) ) {
+						score.grid[beatOfMouseCursor][midiNoteNumberOfMouseCurser-score.midiNoteNumberOfLowestPitch] = false;
+					}
+					else if( !simplePianoRoll.isActivateMajorScale() || !simplePianoRoll.isActivatePentatonicScale() ){
+						score.grid[beatOfMouseCursor][midiNoteNumberOfMouseCurser-score.midiNoteNumberOfLowestPitch] = true;
+					}
+					System.out.println("x:"+beatOfMouseCursor+" y:"+(midiNoteNumberOfMouseCurser-score.midiNoteNumberOfLowestPitch));
 					repaint();
 				}
 			}
@@ -644,6 +683,237 @@ class MyCanvas extends JPanel implements KeyListener, MouseListener, MouseMotion
 		if (sleepIntervalInMilliseconds > 0)
 			this.sleepIntervalInMilliseconds = sleepIntervalInMilliseconds;
 	}
+
+	// save all notes
+	public void saveNotes(){
+
+		System.out.println("from save notes");
+		try(BufferedWriter writer = Files.newBufferedWriter(target, charset))
+		{
+			String note = "";
+
+			for(int x=0; x < score.numBeats; x++){
+				for(int y=0; y<score.numPitches; y++){
+
+					if (score.grid[x][y]){
+						writer.write(note+" x: "+x+" y: "+y+"\n");
+					}
+				}
+			}
+		}catch (IOException e){
+			System.out.println(e.getMessage());
+		}
+	}
+
+	public void generateNotes(SimplePianoRoll spr) {
+
+		if(spr.isActivateMajorScale()){
+			generateSacle(Constant.MAJOR_SCALE);
+		}else if(spr.isActivatePentatonicScale()) {
+			generateSacle(Constant.PENTATONIC_SCALE); 
+		}
+	}
+
+	public void generateSacle(int scaleType){
+
+		Map range = getRange();
+
+		int minRangeVal = (int) range.get("min");
+		int maxRangeVal = (int) range.get("max");
+
+		System.out.println("Min range: "+minRangeVal);
+		System.out.println("Max range: "+maxRangeVal);
+
+		int noteValue;
+		int pitch = 0;
+
+		noteValue = (int)  (Math.random() * (maxRangeVal - minRangeVal)) + minRangeVal;
+		if( Constant.MAJOR_SCALE == scaleType ) {
+			for( int x=0; x<score.numBeats; x++ ) {
+
+				noteValue = (int)  (Math.random() * (maxRangeVal - minRangeVal)) + minRangeVal;
+				System.out.println("before trs : "+noteValue);
+
+				if( isOnScale( noteValue + Score.midiNoteNumberOfLowestPitch , Constant.MAJOR_SCALE) ){
+					System.out.println("painted: "+pitch);
+					// pitch =  noteValue + Score.midiNoteNumberOfLowestPitch + getYTranslation(noteValue);
+					score.grid[x][noteValue] = true; //+ getYTranslation(noteValue)
+				}
+			}
+			repaint();
+		}
+		else if( Constant.PENTATONIC_SCALE == scaleType ) {
+			for( int x=0; x<score.numBeats; x++ ) {
+ 
+				//noteValue += + getYTranslation(noteValue);
+				noteValue = (int)  (Math.random() * (maxRangeVal - minRangeVal)) + minRangeVal;
+				
+				if( isOnScale( noteValue + Score.midiNoteNumberOfLowestPitch , Constant.PENTATONIC_SCALE) ){
+					score.grid[x][noteValue] = true; 
+				}
+			}
+			repaint();
+		}
+	}
+
+	public int getYTranslation(int random){
+
+		//float random = (float)Math.random();
+
+		if( random < 45){
+			return 1;
+			//System.out.println(1);
+		}
+		else if ( random >= 45 && random <=65 ) {
+			return -1;
+			//System.out.println(-1);
+		}
+		else if( random > 70 ){
+			return 0;
+			//System.out.println(0);
+		}
+		return 1;
+
+	}
+
+
+	public Map getRange(){
+
+		Random rand = new Random();
+		Map<String, Integer> minMaxVal = new HashMap<>();
+
+		int range =  rand.nextInt(88);
+
+		if ( range >=3 && range <= 15 ) {
+			minMaxVal.put("min", 3);
+			minMaxVal.put("max", 15);
+		}
+
+		else if ( range >15 && range <= 27 ) {
+			minMaxVal.put("min", 15);
+			minMaxVal.put("max", 27);
+		}
+
+		else if ( range >27 && range <= 39 ) {
+			minMaxVal.put("min", 27);
+			minMaxVal.put("max", 39);
+		}
+
+		else if ( range >39 && range <= 51 ) {
+			minMaxVal.put("min", 39);
+			minMaxVal.put("max", 51);
+		}
+
+		else if ( range >51 && range <= 63 ) {
+			minMaxVal.put("min", 51);
+			minMaxVal.put("max", 63);
+		}
+
+		else if ( range >63 && range <= 75 ) {
+			minMaxVal.put("min", 63);
+			minMaxVal.put("max", 75);
+		}
+
+		else if ( range >75 && range <= 87 ) {
+			minMaxVal.put("min", 75);
+			minMaxVal.put("max", 87);
+		}
+
+		return minMaxVal;
+	}
+
+
+	public boolean isOnScale(int note, int scaleType){
+
+		//int note_ = ( note >= 15 ) ? ( ( note % 12 ) - 3 ) : ( note % 12 );
+		int note_ = note % 12;
+
+		if( Constant.MAJOR_SCALE == scaleType ) {
+			for (int val : majorNotesTab) {
+				if( note_ == val ) {
+					return true;
+				}
+			}
+		}
+		else if ( Constant.PENTATONIC_SCALE == scaleType ) {
+			for (int val : pentatonicNOtesTab) {
+				if( note_ == val ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+
+	public void saveMidiFile(int i) {
+
+		ShortMessage mm = new ShortMessage();
+		s = null;
+		try {
+			s = new Sequence(javax.sound.midi.Sequence.PPQ,24);
+			//mm.setMessage(0xC0, 0x00, 0x00);
+			mm.setMessage(i);
+			Track t = s.createTrack();
+			MidiEvent me = new MidiEvent(mm,(long)121);
+			t.add(me);
+
+			mm = new ShortMessage();
+			mm.setMessage(0x80,0x3C,0x40);
+			me = new MidiEvent(mm,(long)121);
+			t.add(me);
+
+
+		} catch (InvalidMidiDataException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+
+		f = new File("midifile.mid");
+
+	}
+
+
+
+	// load all saved notes
+	public void loadNotes(){
+
+		try(BufferedReader reader = Files.newBufferedReader(target, charset))
+		{
+			String []note;
+			String tmp = "";
+
+			while( (tmp = reader.readLine()) != null ){
+
+				note = tmp.split("\\s+");
+				System.out.println("x: "+note[2]);
+				System.out.println("y: "+note[4]);
+
+				int xNote = Integer.valueOf(note[2]);
+				int yNote = Integer.valueOf(note[4]);
+
+				score.grid[xNote][yNote] = true;
+			}
+		}catch(IOException e){
+			System.out.println(e.getMessage());
+		}
+	}
+
+
+	public void openNotes(){
+		try (BufferedReader reader = Files.newBufferedReader(target, charset))
+		{
+			String line = null;
+			while( (line = reader.readLine()) != null ){
+				System.out.println(line);
+				lines.add(line);
+			}
+
+		}catch (IOException e){
+			System.out.println(e.getMessage());
+		}
+	}
 }
 
 public class SimplePianoRoll implements ActionListener {
@@ -675,6 +945,17 @@ public class SimplePianoRoll implements ActionListener {
 	JRadioButton playNoteUponRolloverRadioButton;
 	JRadioButton playNoteUponRolloverIfSpecialKeyHeldDownRadioButton;
 
+	JRadioButton pentatonicScale;
+	JRadioButton majorScale;
+	JRadioButton doNothingScaleRadioButton;
+
+	boolean activatePentatonicScale = false;
+	boolean activateMajorScale = false;
+
+	private JButton saveButton;
+	private JButton loadButton;
+	private JButton generateButton;
+
 	JLabel tempo;
 	
 	public boolean isMusicPlaying = false;
@@ -692,6 +973,20 @@ public class SimplePianoRoll implements ActionListener {
 	public static final int RM_PLAY_NOTE_UPON_ROLLOVER = 1;
 	public static final int RM_PLAY_NOTE_UPON_ROLLOVER_IF_SPECIAL_KEY_HELD_DOWN = 2;
 	public int rolloverMode = RM_DO_NOTHING_UPON_ROLLOVER;
+
+
+	public boolean isActivatePentatonicScale() {
+		return activatePentatonicScale;
+	}
+	public void setActivatePentatonicScale(boolean activatePentatonicScale) {
+		this.activatePentatonicScale = activatePentatonicScale;
+	}
+	public boolean isActivateMajorScale() {
+		return activateMajorScale;
+	}
+	public void setActivateMajorScale(boolean activateMajorScale) {
+		this.activateMajorScale = activateMajorScale;
+	}
 
 	public void setMusicPlaying( boolean flag ) {
 		isMusicPlaying = flag;
@@ -725,6 +1020,12 @@ public class SimplePianoRoll implements ActionListener {
 		Object source = e.getSource();
 		if ( source == clearMenuItem ) {
 			canvas.clear();
+		}
+		if( source == saveButton ){
+			canvas.saveNotes();
+		}
+		else if( source == loadButton ){
+			canvas.loadNotes();
 		}
 		else if ( source == quitMenuItem ) {
 			int response = JOptionPane.showConfirmDialog(
@@ -797,6 +1098,25 @@ public class SimplePianoRoll implements ActionListener {
 		}
 		else if ( source == playNoteUponRolloverIfSpecialKeyHeldDownRadioButton ) {
 			rolloverMode = RM_PLAY_NOTE_UPON_ROLLOVER_IF_SPECIAL_KEY_HELD_DOWN;
+		}
+		else if ( source == majorScale ) {
+			activateMajorScale = true;
+			setActivatePentatonicScale(false);
+			generateButton.setEnabled(true);
+		}
+		else if ( source == pentatonicScale ) {
+			activatePentatonicScale = true;
+			setActivateMajorScale(false);
+			generateButton.setEnabled(true);
+		}
+		else if ( source == doNothingScaleRadioButton ) {
+			activatePentatonicScale = false;
+			activateMajorScale = false;
+			generateButton.setEnabled(false);
+		}
+		else if( source == generateButton){
+			canvas.clear();
+			canvas.generateNotes(this);
 		}
 	}
 
@@ -924,18 +1244,63 @@ public class SimplePianoRoll implements ActionListener {
 			toolPanel.add( playNoteUponRolloverRadioButton );
 			rolloverModeButtonGroup.add( playNoteUponRolloverRadioButton );
 
-			playNoteUponRolloverIfSpecialKeyHeldDownRadioButton = new JRadioButton( "Play Pitch if Ctrl down" );
-			playNoteUponRolloverIfSpecialKeyHeldDownRadioButton.setAlignmentX( Component.LEFT_ALIGNMENT );
-			playNoteUponRolloverIfSpecialKeyHeldDownRadioButton.addActionListener(this);
-			if ( rolloverMode == RM_PLAY_NOTE_UPON_ROLLOVER_IF_SPECIAL_KEY_HELD_DOWN )
-				playNoteUponRolloverIfSpecialKeyHeldDownRadioButton.setSelected(true);
-			toolPanel.add( playNoteUponRolloverIfSpecialKeyHeldDownRadioButton );
-			rolloverModeButtonGroup.add( playNoteUponRolloverIfSpecialKeyHeldDownRadioButton );
+		playNoteUponRolloverIfSpecialKeyHeldDownRadioButton = new JRadioButton( "Play Pitch if Ctrl down" );
+		playNoteUponRolloverIfSpecialKeyHeldDownRadioButton.setAlignmentX( Component.LEFT_ALIGNMENT );
+		playNoteUponRolloverIfSpecialKeyHeldDownRadioButton.addActionListener(this);
+		if ( rolloverMode == RM_PLAY_NOTE_UPON_ROLLOVER_IF_SPECIAL_KEY_HELD_DOWN )
+			playNoteUponRolloverIfSpecialKeyHeldDownRadioButton.setSelected(true);
+		toolPanel.add( playNoteUponRolloverIfSpecialKeyHeldDownRadioButton );
+		rolloverModeButtonGroup.add( playNoteUponRolloverIfSpecialKeyHeldDownRadioButton );
+
+		toolPanel.add( Box.createRigidArea(new Dimension(1,20)) );
+		toolPanel.add( new JLabel("Scales:") );
+		ButtonGroup scaleButtonGroup = new ButtonGroup();
+
+		doNothingScaleRadioButton = new JRadioButton( "Do Nothing" );
+		doNothingScaleRadioButton.setAlignmentX( Component.LEFT_ALIGNMENT );
+		doNothingScaleRadioButton.addActionListener(this);
+		if ( rolloverMode == RM_DO_NOTHING_UPON_ROLLOVER ) doNothingScaleRadioButton.setSelected(true);
+		toolPanel.add( doNothingScaleRadioButton );
+		scaleButtonGroup.add( doNothingScaleRadioButton );
+
+		pentatonicScale = new JRadioButton( "Major Pentatonic" );
+		pentatonicScale.setAlignmentX( Component.LEFT_ALIGNMENT );
+		pentatonicScale.addActionListener(this);
+		if ( rolloverMode == RM_DO_NOTHING_UPON_ROLLOVER ) pentatonicScale.setSelected(true);
+		toolPanel.add( pentatonicScale );
+		scaleButtonGroup.add( pentatonicScale );
+		toolPanel.add( pentatonicScale );
+
+
+		majorScale = new JRadioButton( "Major scale" );
+		majorScale.setAlignmentX( Component.LEFT_ALIGNMENT );
+		majorScale.addActionListener(this);
+		if ( rolloverMode == RM_DO_NOTHING_UPON_ROLLOVER ) majorScale.setSelected(true);
+		toolPanel.add( majorScale );
+		scaleButtonGroup.add( majorScale );
+		toolPanel.add( majorScale );
+
+		generateButton =  new JButton("Generate");
+		generateButton.addActionListener(this);
+		generateButton.setEnabled(false);
+		scaleButtonGroup.add(generateButton);
+		toolPanel.add(generateButton);
 
 		toolPanel.add( Box.createRigidArea(new Dimension(1,20)) );
 		tempo = new JLabel("Tempo: " + canvas.getSleepIntervalInMilliseconds() + " msec/beat");
 		toolPanel.add(tempo);
-			
+
+		toolPanel.add( Box.createRigidArea(new Dimension(1,20)) );
+		toolPanel.add( new JLabel("Notes:") );
+
+		saveButton = new JButton("Save Notes");
+		saveButton.addActionListener(this);
+		toolPanel.add(saveButton);
+
+		loadButton =  new JButton("Load Notes");
+		loadButton.addActionListener(this);
+		toolPanel.add(loadButton);
+
 		frame.pack();
 		frame.setVisible( true );
 
@@ -955,4 +1320,3 @@ public class SimplePianoRoll implements ActionListener {
 		);
 	}
 }
-
